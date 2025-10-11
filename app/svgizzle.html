@@ -806,9 +806,6 @@
                         .attr('opacity', 0.8)
                         .style('cursor', 'pointer');
 
-                    // Store reference to line data
-                    interactiveLine.data('lineData', line);
-
                     // Add click handler
                     interactiveLine.on('click', function(event) {
                         event.stopPropagation();
