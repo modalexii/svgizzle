@@ -9,7 +9,7 @@ export function getLineColor(line) {
     if (!line.isAdjustable) {
         return '#000000'; // Normal - black
     } else if (line.multiplier === 1) {
-        return '#1976D2'; // 1x adjustable - darker blue
+        return '#00D9FF'; // 1x adjustable - bright cyan
     } else if (line.multiplier === 2) {
         return '#9C27B0'; // 2x adjustable - purple
     }

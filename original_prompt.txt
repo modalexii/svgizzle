@@ -1,0 +1,20 @@
+I'd like to start a new project.  It will make it easy to laser cut SVGs in different materials by altering the size of interlocking slots that need to correspond to material thickness.  Here's my main criteria:
+
+1. A single page web app that runs entirely within the browser 
+	- It is ok to use external JS libraries wherever it prevents complex reimplementations - eg, consider SVG.js
+2. User uploads an SVG and can mark which lines of the SVG correspond to material thickness. Let's call these "adjustable lines".
+	- The user's SVG may have a single compound path, which will need to be split in to individual paths without altering the appearance of the drawing
+	- Most adjustable lines will correspond to 1x Material Thickness, but some will be 2x - the user should be able to mark these as well
+3. User can set a material thickness in MM, and a DPI which defaults to 72. Together the MM and DPI will be converted to svg units. User can then Apply that length to selected lines, lengethening or shortening them to match the calculated svg units.
+4. Becuase all lines in the svg together form one or more closed shapes, the app must maintain the closed shapes. When lines are adjusted, any lines that share a point with an adjustable line must be lengthened or shortened by the app, so that all lines continue to meet at the same points and at the same angle as they did prior to adjustment. 
+	- No line should ever change angle based on any adjustments that the app makes - the only necessary changes are the start/end points of lines and translation of adjacent lines to fulfill the requirement that the closed shape is maintained.
+	- Because all lines together form closed shapes, lines always meet one other line at each end. No adjustment should ever result in a line that does not contact 2 other lines, one at each end.
+	- The direction in which adjustable lines are extended or contracted is dictated by their relationship to the closed shape that they are part of: adjustable lines will always be extended or contracted "away" from (if user specified material thickness is larger than current line length), or "towards" (if material thickness is smaller than current length) the enclosed shape area.
+	- Sometimes a slot/tab will be on the corner of an enclosed shape and thus one of its lines will actually be the adjacent side, which will need to expand or contract by the material thickness, but not TO the material thickness. I'm not sure how to handle this situation - does the user somehow mark these lines, or does the app figure it out?
+	- It may be useful to differentiate between "tabs" and "slots": a tab extends outside the "core" geometry of a shape, and usually shares one line with an adjacent slot (which accepts the tab from another shape, once laser cut). Tabs usually have 3 lines: 2 adjustable, and one connecting them, which will need to translate (move) as part of the changes. A slot usually has 3 lines: 2 adjustable, and one that is the edge of the enclosed shape, and this should not move or change at all as part of the changes. Tabs/slots on corners are an exception to this.
+	- The app will never need to adjust a curve - adjustable lines and their adjacent lines will all be straight
+
+
+Because we'll need to work within session limits, i'd like you to first only create the overall design, and a task list for implementing this across multiple sessions.  Please track your progress and task context in detail and return notes for yourself each time, so that a different claude can pick up the task at any point. 
+
+Now that we've got our plan, can you write a file containing instructions you'll use at the beginning of each session to get oriented and start your work?  Don't forget to tell yourself to do things like commiting changees to git.  I'd also like a simple prompt I can provide you telling you to read that file and continue work on the next task
