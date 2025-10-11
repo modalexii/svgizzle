@@ -171,6 +171,8 @@ Monitor browser console when developing/testing.
 
 **Curve Handling**: All curves (C, Q) are flattened to 10 line segments per curve in `flattenPathArray()`. This is a critical pre-processing step that simplifies all geometric calculations.
 
+**Interactive Line Selection**: Lines are marked in place by modifying the original SVG path stroke colors. Click detection uses geometric distance calculation to determine which line segment was clicked. No overlay elements are used - all interactions happen directly on the original paths.
+
 **Tab vs Slot Detection**: Not yet implemented (Phase 6). The heuristic will be:
 - **Slots**: Have a fixed edge line (part of main perimeter) - should not translate
 - **Tabs**: Have a connecting line between two adjustable lines - must translate

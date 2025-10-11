@@ -95,30 +95,30 @@ The application has completed Phase 3 of the 8-phase implementation plan detaile
 
 **Completed Tasks**:
 - ✓ Task 3.1: Line click detection implemented
-  - Function: `makeLineSegmentsInteractive()` (app/svgizzle.html:783-833)
-  - Created invisible line overlays for each line segment using SVG.js
-  - Added click event listeners with `interactiveLine.on('click', handler)`
-  - Line data stored in each interactive element
+  - Function: `makeLineSegmentsInteractive()` (app/svgizzle.html:782-851)
+  - Click handlers attached directly to SVG paths (no overlays)
+  - Uses click position to determine which line segment was clicked
+  - Distance calculation via `distanceToLineSegment()` (app/svgizzle.html:853-877)
+  - 10-pixel tolerance for click detection
 
 - ✓ Task 3.2: Line state toggling implemented
-  - Function: `handleLineClick()` (app/svgizzle.html:848-868)
+  - Function: `handleLineClick()` (app/svgizzle.html:891-912)
   - Cycles through: normal → 1x → 2x → normal
   - Updates line data structure (`isAdjustable` and `multiplier` properties)
-  - Visual feedback with color changes via `updateLineVisuals()` (app/svgizzle.html:884-887)
+  - Visual feedback with color changes via `updatePathVisuals()` (app/svgizzle.html:914-941)
   - Color mapping: normal=#000000, 1x=#2196F3, 2x=#9C27B0
 
 - ✓ Task 3.3: Hover effects implemented
-  - Function: `handleLineHover()` (app/svgizzle.html:871-881)
-  - Mouse event listeners: `mouseenter` and `mouseleave`
-  - Stroke width increases from 4 to 6 on hover
-  - Opacity increases from 0.8 to 1.0 on hover
+  - Mouse event listeners on paths: `mouseenter` and `mouseleave`
+  - Stroke width increases from 2 to 4 on hover
   - Cursor changes to pointer
 
 **Implementation Details**:
-- Created interactive line overlays as separate SVG elements on top of original paths
-- Each line segment has reference to its interactive element in `line.interactiveLine`
-- Interactive lines grouped in `interactive-lines` group for organization
-- Color coding function: `getLineColor()` (app/svgizzle.html:836-845)
+- Lines marked in place by modifying original path stroke colors
+- Click detection uses geometric calculation to find nearest line segment
+- Path colors update based on dominant line segment state
+- Helper function `updateAllLineVisuals()` (app/svgizzle.html:943-955) for batch updates
+- No overlay elements used - direct manipulation of original paths
 - Console logging for state changes
 
 **Deliverable**: Interactive SVG with selectable lines ✓
