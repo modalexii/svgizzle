@@ -1,8 +1,8 @@
 # Implementation Progress
 
-## Current Status: Phase 2 Complete
+## Current Status: Phase 3 Complete
 
-The application has completed Phase 2 of the 8-phase implementation plan detailed in design.md.
+The application has completed Phase 3 of the 8-phase implementation plan detailed in design.md.
 
 ---
 
@@ -89,29 +89,43 @@ The application has completed Phase 2 of the 8-phase implementation plan detaile
 
 ---
 
+### Phase 3: Interactive Line Selection ✓
+**Status**: Complete
+**Files**: `app/svgizzle.html`
+
+**Completed Tasks**:
+- ✓ Task 3.1: Line click detection implemented
+  - Function: `makeLineSegmentsInteractive()` (app/svgizzle.html:783-833)
+  - Created invisible line overlays for each line segment using SVG.js
+  - Added click event listeners with `interactiveLine.on('click', handler)`
+  - Line data stored in each interactive element
+
+- ✓ Task 3.2: Line state toggling implemented
+  - Function: `handleLineClick()` (app/svgizzle.html:848-868)
+  - Cycles through: normal → 1x → 2x → normal
+  - Updates line data structure (`isAdjustable` and `multiplier` properties)
+  - Visual feedback with color changes via `updateLineVisuals()` (app/svgizzle.html:884-887)
+  - Color mapping: normal=#000000, 1x=#2196F3, 2x=#9C27B0
+
+- ✓ Task 3.3: Hover effects implemented
+  - Function: `handleLineHover()` (app/svgizzle.html:871-881)
+  - Mouse event listeners: `mouseenter` and `mouseleave`
+  - Stroke width increases from 4 to 6 on hover
+  - Opacity increases from 0.8 to 1.0 on hover
+  - Cursor changes to pointer
+
+**Implementation Details**:
+- Created interactive line overlays as separate SVG elements on top of original paths
+- Each line segment has reference to its interactive element in `line.interactiveLine`
+- Interactive lines grouped in `interactive-lines` group for organization
+- Color coding function: `getLineColor()` (app/svgizzle.html:836-845)
+- Console logging for state changes
+
+**Deliverable**: Interactive SVG with selectable lines ✓
+
+---
+
 ## Phases Still To Be Implemented
-
-### Phase 3: Interactive Line Selection
-**Status**: Not Started
-**Next Task**: Task 3.1
-
-**Tasks**:
-- [ ] Task 3.1: Implement line click detection
-  - Add click event listeners to SVG.js path instances
-  - Use SVG.js `path.on('click', handler)`
-  - Track clicked line in data model
-
-- [ ] Task 3.2: Implement line state toggling
-  - Cycle through: normal → 1x → 2x → normal
-  - Update line data structure
-  - Visual feedback with color changes
-
-- [ ] Task 3.3: Implement hover effects
-  - Add mouse event listeners
-  - Stroke width increase on hover
-  - Cursor change
-
-**Expected Deliverable**: Interactive SVG with selectable lines
 
 ---
 
@@ -255,9 +269,12 @@ The application has completed Phase 2 of the 8-phase implementation plan detaile
 - ✓ Curve flattening
 - ✓ Shape graph construction
 - ✓ Winding order calculation
+- ✓ Line selection and marking (Phase 3)
+- ✓ Interactive line overlays
+- ✓ State toggling (normal → 1x → 2x)
+- ✓ Hover effects
 
 **Testing Needed**:
-- Line selection and marking
 - Geometric adjustments
 - Shape closure preservation
 - Download of adjusted SVG
@@ -267,31 +284,38 @@ The application has completed Phase 2 of the 8-phase implementation plan detaile
 
 ## Known Issues & Technical Debt
 
-None currently. Application is stable through Phase 2.
+None currently. Application is stable through Phase 3.
 
 ---
 
 ## Session Handoff Notes
 
 **For Next Session**:
-1. Start with Phase 3, Task 3.1: Implement line click detection
-2. Need to add click handlers to individual line segments
-3. Challenge: Line segments are part of paths, not separate elements
-4. Approach: May need to create invisible overlay paths for each line segment to enable clicking
-5. Alternative: Use path hit testing with mouse coordinates
+1. Start with Phase 4, Task 4.1: Implement unit conversion
+2. Create function to convert mm + DPI to SVG units: (mm * dpi) / 25.4
+3. Task 4.2: Calculate perpendicular direction for line adjustments
+4. Task 4.3: Implement single line adjustment (without propagation yet)
 
-**Context for Phase 3**:
-- Each line segment has SVG.js path reference in `line.svgPath`
-- Line segment data is in `state.shapes[].lines[]`
-- Need to map clicks to specific line segments within paths
-- Color scheme defined: normal=#000000, 1x=#2196F3, 2x=#9C27B0
+**Context for Phase 4**:
+- Interactive line selection complete - users can mark lines as adjustable
+- Line data has `isAdjustable` and `multiplier` properties set by user clicks
+- Need to calculate new line lengths based on `state.materialThickness` and `state.dpi`
+- Direction calculation uses shape `windingOrder` and perpendicular vectors
+- Adjustments expand "away from" or contract "toward" shape centroid
 
 **Data Structures Ready**:
-- Global `state` object populated
-- `state.shapes` array contains closed shapes
-- Each shape has `lines` array with geometric data
-- Line segments have `isAdjustable` and `multiplier` properties ready to use
+- Global `state` object with `materialThickness` and `dpi`
+- `state.shapes[]` array with closed shapes
+- Each line has `startPoint`, `endPoint`, `angle`, `length`, `isAdjustable`, `multiplier`
+- Shape has `windingOrder` ('cw' or 'ccw')
+- Interactive overlays in `line.interactiveLine` for visual updates
+
+**Key Algorithm Notes**:
+- Unit conversion: `svgUnits = (mm * dpi) / 25.4`
+- Perpendicular vector: rotate line direction vector by 90°
+- Use winding order to choose correct perpendicular direction (toward or away from centroid)
+- For now, only adjust the line itself - don't propagate to adjacent lines (Phase 5)
 
 ---
 
-*Last Updated: Phase 2 completion*
+*Last Updated: Phase 3 completion*
