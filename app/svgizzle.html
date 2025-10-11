@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Material Thickness Adjuster</title>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2.0/dist/svg.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .upload-section {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #2980b9;
+        }
+
+        .file-name {
+            margin-left: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .settings-panel {
+            padding: 20px 30px;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 120px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .button-primary {
+            background: #27ae60;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #229954;
+        }
+
+        .button-primary:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .button-secondary {
+            background: #34495e;
+            color: white;
+        }
+
+        .button-secondary:hover {
+            background: #2c3e50;
+        }
+
+        .button-secondary:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .canvas-container {
+            padding: 30px;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+        }
+
+        #svg-canvas {
+            width: 100%;
+            height: 600px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 16px;
+        }
+
+        #svg-canvas.has-content {
+            border: 1px solid #ddd;
+        }
+
+        .legend {
+            padding: 20px 30px;
+            background: #fafafa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .legend-line {
+            width: 40px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-line.normal {
+            background: #000000;
+        }
+
+        .legend-line.adjustable-1x {
+            background: #2196F3;
+        }
+
+        .legend-line.adjustable-2x {
+            background: #9C27B0;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+        }
+
+        .status-message {
+            padding: 10px 20px;
+            margin: 10px 30px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+            display: block;
+        }
+
+        .status-message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #66bb6a;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SVG Material Thickness Adjuster</h1>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="svg-upload" accept=".svg,image/svg+xml">
+                <label for="svg-upload" class="file-input-label">Upload SVG</label>
+            </div>
+            <span class="file-name" id="file-name">No file selected</span>
+        </div>
+
+        <div id="status-message" class="status-message"></div>
+
+        <div class="settings-panel">
+            <div class="input-group">
+                <label for="material-thickness">Material Thickness (mm)</label>
+                <input type="number" id="material-thickness" value="3" min="0.1" step="0.1">
+            </div>
+            <div class="input-group">
+                <label for="dpi">DPI</label>
+                <input type="number" id="dpi" value="72" min="1" step="1">
+            </div>
+            <button class="button button-primary" id="apply-btn" disabled>Apply Adjustments</button>
+            <button class="button button-secondary" id="download-btn" disabled>Download SVG</button>
+        </div>
+
+        <div class="canvas-container">
+            <div id="svg-canvas">
+                <div class="empty-state">Upload an SVG file to begin</div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <span class="legend-title">Legend:</span>
+            <div class="legend-item">
+                <div class="legend-line normal"></div>
+                <span>Normal</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line adjustable-1x"></div>
+                <span>1x Adjustable</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line adjustable-2x"></div>
+                <span>2x Adjustable</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            originalSVG: null,
+            svgDraw: null,
+            shapes: [],
+            materialThickness: 3,
+            dpi: 72,
+            adjustedSVG: null,
+            fileName: ''
+        };
+
+        // DOM elements
+        const svgUpload = document.getElementById('svg-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const svgCanvas = document.getElementById('svg-canvas');
+        const materialThicknessInput = document.getElementById('material-thickness');
+        const dpiInput = document.getElementById('dpi');
+        const applyBtn = document.getElementById('apply-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const statusMessage = document.getElementById('status-message');
+
+        // Initialize
+        function init() {
+            svgUpload.addEventListener('change', handleFileUpload);
+            materialThicknessInput.addEventListener('input', updateMaterialThickness);
+            dpiInput.addEventListener('input', updateDPI);
+            applyBtn.addEventListener('click', applyAdjustments);
+            downloadBtn.addEventListener('click', downloadSVG);
+            
+            console.log('SVG Material Thickness Adjuster initialized');
+            console.log('SVG.js version:', SVG.version || 'loaded');
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.includes('svg')) {
+                showStatus('Please upload a valid SVG file', 'error');
+                return;
+            }
+
+            state.fileName = file.name;
+            fileNameDisplay.textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    loadSVG(e.target.result);
+                    showStatus('SVG loaded successfully! Click lines to mark them as adjustable.', 'success');
+                } catch (error) {
+                    showStatus('Error loading SVG: ' + error.message, 'error');
+                    console.error('SVG load error:', error);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Load SVG using SVG.js
+        function loadSVG(svgText) {
+            // Clear previous SVG
+            svgCanvas.innerHTML = '';
+            svgCanvas.classList.add('has-content');
+
+            // Create SVG.js drawing
+            const draw = SVG().addTo('#svg-canvas').size('100%', '100%');
+            
+            // Load the SVG content
+            draw.svg(svgText);
+
+            // Get the actual SVG content (first child group or element)
+            const svgContent = draw.children()[0];
+            
+            if (!svgContent) {
+                throw new Error('No content found in SVG');
+            }
+
+            // Get the bounding box and center the content
+            const bbox = svgContent.bbox();
+            const canvasWidth = svgCanvas.clientWidth;
+            const canvasHeight = svgCanvas.clientHeight;
+            
+            // Calculate scale to fit content with padding
+            const padding = 40;
+            const scaleX = (canvasWidth - padding * 2) / bbox.width;
+            const scaleY = (canvasHeight - padding * 2) / bbox.height;
+            const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+            
+            // Center the content
+            const viewBox = {
+                x: bbox.x - padding / scale,
+                y: bbox.y - padding / scale,
+                width: bbox.width + (padding * 2) / scale,
+                height: bbox.height + (padding * 2) / scale
+            };
+            
+            draw.viewbox(viewBox.x, viewBox.y, viewBox.width, viewBox.height);
+
+            // Store in state
+            state.svgDraw = draw;
+            state.originalSVG = svgContent;
+
+            console.log('SVG loaded successfully');
+            console.log('SVG dimensions:', bbox);
+            console.log('Found', draw.find('path').length, 'paths');
+
+            // Process SVG: split compound paths and build shape graph
+            processSVG(draw);
+
+            // Apply subtle fill and thicker strokes to all paths
+            draw.find('path').forEach(path => {
+                // Set light fill for all shapes
+                path.attr('fill', '#f5f5f5');
+
+                // Make strokes thicker and visible
+                if (!path.attr('stroke') || path.attr('stroke') === 'none') {
+                    path.attr('stroke', '#000000');
+                }
+                path.attr('stroke-width', 2);
+            });
+
+            // Make line segments interactive
+            makeLineSegmentsInteractive(draw);
+
+            // Enable buttons
+            applyBtn.disabled = false;
+            downloadBtn.disabled = false;
+        }
+
+        // Process SVG: split compound paths, flatten curves, build shape graph
+        function processSVG(draw) {
+            console.log('=== Starting SVG Processing ===');
+            
+            // Find all path elements
+            const allPaths = draw.find('path');
+            console.log('Found', allPaths.length, 'total paths');
+
+            // Split compound paths
+            const splitPaths = splitCompoundPaths(allPaths);
+            console.log('After splitting:', splitPaths.length, 'paths');
+
+            // Convert paths to line segments
+            const lineSegments = convertPathsToLines(splitPaths);
+            console.log('Extracted', lineSegments.length, 'line segments');
+
+            // Build shape graph
+            state.shapes = buildShapeGraph(lineSegments);
+            console.log('Built', state.shapes.length, 'closed shapes');
+
+            console.log('=== SVG Processing Complete ===');
+        }
+
+        // Split compound paths (paths with multiple M commands)
+        function splitCompoundPaths(paths) {
+            const result = [];
+            
+            paths.forEach(path => {
+                const pathArray = path.array();
+                const subpaths = [];
+                let currentSubpath = [];
+
+                pathArray.forEach((cmd, index) => {
+                    if (cmd[0] === 'M' && currentSubpath.length > 0) {
+                        // Start of new subpath, save previous
+                        subpaths.push(currentSubpath);
+                        currentSubpath = [cmd];
+                    } else {
+                        currentSubpath.push(cmd);
+                    }
+                });
+
+                // Add last subpath
+                if (currentSubpath.length > 0) {
+                    subpaths.push(currentSubpath);
+                }
+
+                // If only one subpath, keep original path
+                if (subpaths.length === 1) {
+                    result.push(path);
+                } else {
+                    // Multiple subpaths - split into separate paths
+                    console.log('Splitting compound path into', subpaths.length, 'paths');
+                    
+                    const parent = path.parent();
+                    const attrs = {
+                        fill: path.attr('fill'),
+                        stroke: path.attr('stroke'),
+                        'stroke-width': path.attr('stroke-width')
+                    };
+
+                    subpaths.forEach(subpathArray => {
+                        const newPath = parent.path(subpathArray);
+                        // Copy attributes
+                        Object.keys(attrs).forEach(key => {
+                            if (attrs[key]) newPath.attr(key, attrs[key]);
+                        });
+                        result.push(newPath);
+                    });
+
+                    // Remove original compound path
+                    path.remove();
+                }
+            });
+
+            return result;
+        }
+
+        // Convert paths to line segments
+        function convertPathsToLines(paths) {
+            const allLineSegments = [];
+
+            paths.forEach((path, pathIndex) => {
+                const pathArray = path.array();
+                const pathId = 'path_' + pathIndex;
+                
+                // Convert to absolute coordinates and flatten curves
+                const flattenedArray = flattenPathArray(pathArray);
+                
+                let currentPoint = null;
+                let firstPoint = null;
+                let segmentIndex = 0;
+
+                flattenedArray.forEach((cmd, cmdIndex) => {
+                    const command = cmd[0];
+
+                    if (command === 'M') {
+                        // Move command - set current point
+                        currentPoint = { x: cmd[1], y: cmd[2] };
+                        firstPoint = { ...currentPoint };
+                    } else if (command === 'L') {
+                        // Line command
+                        if (currentPoint) {
+                            const endPoint = { x: cmd[1], y: cmd[2] };
+                            const line = createLineSegment(
+                                pathId,
+                                segmentIndex,
+                                currentPoint,
+                                endPoint,
+                                path,
+                                cmdIndex
+                            );
+                            allLineSegments.push(line);
+                            segmentIndex++;
+                            currentPoint = endPoint;
+                        }
+                    } else if (command === 'Z' || command === 'z') {
+                        // Close path - connect back to first point
+                        if (currentPoint && firstPoint && !pointsEqual(currentPoint, firstPoint, 0.001)) {
+                            const line = createLineSegment(
+                                pathId,
+                                segmentIndex,
+                                currentPoint,
+                                firstPoint,
+                                path,
+                                cmdIndex
+                            );
+                            allLineSegments.push(line);
+                            segmentIndex++;
+                        }
+                        currentPoint = firstPoint;
+                    }
+                });
+            });
+
+            return allLineSegments;
+        }
+
+        // Flatten path array: convert curves to line segments
+        function flattenPathArray(pathArray) {
+            const result = [];
+            let currentPoint = { x: 0, y: 0 };
+            const CURVE_SEGMENTS = 10; // Number of segments to approximate curves
+
+            pathArray.forEach(cmd => {
+                const command = cmd[0];
+
+                if (command === 'M' || command === 'm') {
+                    // Move command
+                    const x = command === 'M' ? cmd[1] : currentPoint.x + cmd[1];
+                    const y = command === 'M' ? cmd[2] : currentPoint.y + cmd[2];
+                    result.push(['M', x, y]);
+                    currentPoint = { x, y };
+                } else if (command === 'L' || command === 'l') {
+                    // Line command
+                    const x = command === 'L' ? cmd[1] : currentPoint.x + cmd[1];
+                    const y = command === 'L' ? cmd[2] : currentPoint.y + cmd[2];
+                    result.push(['L', x, y]);
+                    currentPoint = { x, y };
+                } else if (command === 'H' || command === 'h') {
+                    // Horizontal line
+                    const x = command === 'H' ? cmd[1] : currentPoint.x + cmd[1];
+                    result.push(['L', x, currentPoint.y]);
+                    currentPoint.x = x;
+                } else if (command === 'V' || command === 'v') {
+                    // Vertical line
+                    const y = command === 'V' ? cmd[1] : currentPoint.y + cmd[1];
+                    result.push(['L', currentPoint.x, y]);
+                    currentPoint.y = y;
+                } else if (command === 'C' || command === 'c') {
+                    // Cubic bezier curve - approximate with line segments
+                    const p0 = { ...currentPoint };
+                    const p1 = command === 'C' ? 
+                        { x: cmd[1], y: cmd[2] } : 
+                        { x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] };
+                    const p2 = command === 'C' ? 
+                        { x: cmd[3], y: cmd[4] } : 
+                        { x: currentPoint.x + cmd[3], y: currentPoint.y + cmd[4] };
+                    const p3 = command === 'C' ? 
+                        { x: cmd[5], y: cmd[6] } : 
+                        { x: currentPoint.x + cmd[5], y: currentPoint.y + cmd[6] };
+
+                    for (let i = 1; i <= CURVE_SEGMENTS; i++) {
+                        const t = i / CURVE_SEGMENTS;
+                        const point = cubicBezier(t, p0, p1, p2, p3);
+                        result.push(['L', point.x, point.y]);
+                    }
+                    currentPoint = p3;
+                } else if (command === 'Q' || command === 'q') {
+                    // Quadratic bezier curve
+                    const p0 = { ...currentPoint };
+                    const p1 = command === 'Q' ? 
+                        { x: cmd[1], y: cmd[2] } : 
+                        { x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] };
+                    const p2 = command === 'Q' ? 
+                        { x: cmd[3], y: cmd[4] } : 
+                        { x: currentPoint.x + cmd[3], y: currentPoint.y + cmd[4] };
+
+                    for (let i = 1; i <= CURVE_SEGMENTS; i++) {
+                        const t = i / CURVE_SEGMENTS;
+                        const point = quadraticBezier(t, p0, p1, p2);
+                        result.push(['L', point.x, point.y]);
+                    }
+                    currentPoint = p2;
+                } else if (command === 'Z' || command === 'z') {
+                    result.push(['Z']);
+                }
+                // For now, skip other commands (A, S, T) - can add later if needed
+            });
+
+            return result;
+        }
+
+        // Cubic bezier calculation
+        function cubicBezier(t, p0, p1, p2, p3) {
+            const u = 1 - t;
+            const tt = t * t;
+            const uu = u * u;
+            const uuu = uu * u;
+            const ttt = tt * t;
+
+            return {
+                x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+                y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+            };
+        }
+
+        // Quadratic bezier calculation
+        function quadraticBezier(t, p0, p1, p2) {
+            const u = 1 - t;
+            const uu = u * u;
+            const tt = t * t;
+
+            return {
+                x: uu * p0.x + 2 * u * t * p1.x + tt * p2.x,
+                y: uu * p0.y + 2 * u * t * p1.y + tt * p2.y
+            };
+        }
+
+        // Helper function to check if two points are equal
+        function pointsEqual(p1, p2, epsilon = 0.001) {
+            return Math.abs(p1.x - p2.x) < epsilon && 
+                   Math.abs(p1.y - p2.y) < epsilon;
+        }
+
+        // Create a line segment data structure
+        function createLineSegment(pathId, segmentIndex, startPoint, endPoint, svgPath, cmdIndex) {
+            const dx = endPoint.x - startPoint.x;
+            const dy = endPoint.y - startPoint.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
+
+            return {
+                id: pathId + '_seg_' + segmentIndex,
+                pathId: pathId,
+                segmentIndex: segmentIndex,
+                svgPath: svgPath,
+                cmdIndex: cmdIndex,
+                startPoint: { ...startPoint },
+                endPoint: { ...endPoint },
+                length: length,
+                angle: angle,
+                isAdjustable: false,
+                multiplier: 1,
+                adjacentLines: {
+                    start: null,
+                    end: null
+                },
+                type: 'normal'
+            };
+        }
+
+        // Build shape graph by connecting line segments
+        function buildShapeGraph(lineSegments) {
+            const EPSILON = 0.001; // Tolerance for point matching
+            const shapes = [];
+
+            // Build connectivity: find which lines share endpoints
+            lineSegments.forEach(line => {
+                lineSegments.forEach(otherLine => {
+                    if (line.id === otherLine.id) return;
+
+                    // Check if line's end connects to otherLine's start
+                    if (pointsEqual(line.endPoint, otherLine.startPoint, EPSILON)) {
+                        line.adjacentLines.end = otherLine.id;
+                    }
+
+                    // Check if line's start connects to otherLine's end
+                    if (pointsEqual(line.startPoint, otherLine.endPoint, EPSILON)) {
+                        line.adjacentLines.start = otherLine.id;
+                    }
+                });
+            });
+
+            // Find closed shapes by following connections
+            const visited = new Set();
+            
+            lineSegments.forEach(startLine => {
+                if (visited.has(startLine.id)) return;
+
+                const shape = {
+                    id: 'shape_' + shapes.length,
+                    lines: [],
+                    windingOrder: 'cw'
+                };
+
+                let currentLine = startLine;
+                let iterations = 0;
+                const maxIterations = lineSegments.length * 2;
+
+                // Follow the chain of connections
+                while (currentLine && iterations < maxIterations) {
+                    if (visited.has(currentLine.id)) {
+                        // We've completed a loop
+                        break;
+                    }
+
+                    visited.add(currentLine.id);
+                    shape.lines.push(currentLine);
+
+                    // Find next line
+                    const nextLineId = currentLine.adjacentLines.end;
+                    if (!nextLineId) break;
+
+                    currentLine = lineSegments.find(l => l.id === nextLineId);
+                    iterations++;
+                }
+
+                // Only add if we have a closed shape (more than 2 lines)
+                if (shape.lines.length > 2) {
+                    // Calculate winding order
+                    shape.windingOrder = calculateWindingOrder(shape.lines);
+                    shapes.push(shape);
+                    console.log('Found shape with', shape.lines.length, 'lines, winding:', shape.windingOrder);
+                }
+            });
+
+            return shapes;
+        }
+
+        // Calculate winding order (clockwise or counter-clockwise)
+        function calculateWindingOrder(lines) {
+            // Use shoelace formula to calculate signed area
+            let area = 0;
+            lines.forEach(line => {
+                area += (line.endPoint.x - line.startPoint.x) *
+                        (line.endPoint.y + line.startPoint.y);
+            });
+
+            return area > 0 ? 'cw' : 'ccw';
+        }
+
+        // Make line segments interactive
+        function makeLineSegmentsInteractive(draw) {
+            console.log('=== Making Line Segments Interactive ===');
+
+            // Create a group for interactive line overlays
+            const interactiveGroup = draw.group().addClass('interactive-lines');
+
+            // For each shape, create clickable line overlays
+            state.shapes.forEach(shape => {
+                shape.lines.forEach(line => {
+                    // Create an invisible line overlay for clicking
+                    const interactiveLine = interactiveGroup.line(
+                        line.startPoint.x,
+                        line.startPoint.y,
+                        line.endPoint.x,
+                        line.endPoint.y
+                    );
+
+                    // Style the interactive line
+                    interactiveLine
+                        .attr('stroke', getLineColor(line))
+                        .attr('stroke-width', 4)
+                        .attr('stroke-linecap', 'round')
+                        .attr('fill', 'none')
+                        .attr('opacity', 0.8)
+                        .style('cursor', 'pointer');
+
+                    // Store reference to line data
+                    interactiveLine.data('lineData', line);
+
+                    // Add click handler
+                    interactiveLine.on('click', function(event) {
+                        event.stopPropagation();
+                        handleLineClick(line, interactiveLine);
+                    });
+
+                    // Add hover handlers
+                    interactiveLine.on('mouseenter', function() {
+                        handleLineHover(line, interactiveLine, true);
+                    });
+
+                    interactiveLine.on('mouseleave', function() {
+                        handleLineHover(line, interactiveLine, false);
+                    });
+
+                    // Store reference to interactive line in line data
+                    line.interactiveLine = interactiveLine;
+                });
+            });
+
+            console.log('Created interactive overlays for', state.shapes.reduce((sum, s) => sum + s.lines.length, 0), 'line segments');
+        }
+
+        // Get color for line based on its state
+        function getLineColor(line) {
+            if (!line.isAdjustable) {
+                return '#000000'; // Normal - black
+            } else if (line.multiplier === 1) {
+                return '#2196F3'; // 1x adjustable - blue
+            } else if (line.multiplier === 2) {
+                return '#9C27B0'; // 2x adjustable - purple
+            }
+            return '#000000';
+        }
+
+        // Handle line click - toggle state
+        function handleLineClick(line, interactiveLine) {
+            // Cycle through states: normal → 1x → 2x → normal
+            if (!line.isAdjustable) {
+                // normal → 1x
+                line.isAdjustable = true;
+                line.multiplier = 1;
+            } else if (line.multiplier === 1) {
+                // 1x → 2x
+                line.multiplier = 2;
+            } else if (line.multiplier === 2) {
+                // 2x → normal
+                line.isAdjustable = false;
+                line.multiplier = 1;
+            }
+
+            // Update visual appearance
+            updateLineVisuals(line, interactiveLine);
+
+            // Log state change
+            console.log('Line', line.id, 'state:', line.isAdjustable ? line.multiplier + 'x adjustable' : 'normal');
+        }
+
+        // Handle line hover
+        function handleLineHover(line, interactiveLine, isEntering) {
+            if (isEntering) {
+                // Increase stroke width on hover
+                interactiveLine.attr('stroke-width', 6);
+                interactiveLine.attr('opacity', 1);
+            } else {
+                // Restore original stroke width
+                interactiveLine.attr('stroke-width', 4);
+                interactiveLine.attr('opacity', 0.8);
+            }
+        }
+
+        // Update line visual appearance
+        function updateLineVisuals(line, interactiveLine) {
+            const color = getLineColor(line);
+            interactiveLine.attr('stroke', color);
+        }
+
+        // Update material thickness
+        function updateMaterialThickness(event) {
+            const value = parseFloat(event.target.value);
+            if (value > 0) {
+                state.materialThickness = value;
+            }
+        }
+
+        // Update DPI
+        function updateDPI(event) {
+            const value = parseInt(event.target.value);
+            if (value > 0) {
+                state.dpi = value;
+            }
+        }
+
+        // Apply adjustments (placeholder for now)
+        function applyAdjustments() {
+            if (!state.svgDraw) {
+                showStatus('Please upload an SVG first', 'error');
+                return;
+            }
+
+            showStatus('Apply function will be implemented in Phase 4-7', 'error');
+            console.log('Apply adjustments clicked');
+            console.log('Material thickness:', state.materialThickness, 'mm');
+            console.log('DPI:', state.dpi);
+        }
+
+        // Download SVG
+        function downloadSVG() {
+            if (!state.svgDraw) {
+                showStatus('No SVG to download', 'error');
+                return;
+            }
+
+            try {
+                const svgString = state.svgDraw.svg();
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = state.fileName.replace('.svg', '_adjusted.svg');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showStatus('SVG downloaded successfully!', 'success');
+            } catch (error) {
+                showStatus('Error downloading SVG: ' + error.message, 'error');
+                console.error('Download error:', error);
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message ' + type;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusMessage.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialize app
+        init();
+    </script>
+</body>
+</html>
