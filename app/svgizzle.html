@@ -209,7 +209,7 @@
         }
 
         .legend-line.adjustable-1x {
-            background: #2196F3;
+            background: #1976D2;
         }
 
         .legend-line.adjustable-2x {
@@ -407,18 +407,6 @@
             // Process SVG: split compound paths and build shape graph
             processSVG(draw);
 
-            // Apply subtle fill and thicker strokes to all paths
-            draw.find('path').forEach(path => {
-                // Set light fill for all shapes
-                path.attr('fill', '#f5f5f5');
-
-                // Make strokes thicker and visible
-                if (!path.attr('stroke') || path.attr('stroke') === 'none') {
-                    path.attr('stroke', '#000000');
-                }
-                path.attr('stroke-width', 2);
-            });
-
             // Make line segments interactive
             makeLineSegmentsInteractive(draw);
 
@@ -427,10 +415,10 @@
             downloadBtn.disabled = false;
         }
 
-        // Process SVG: split compound paths, flatten curves, build shape graph
+        // Process SVG: split compound paths, build shape graph
         function processSVG(draw) {
             console.log('=== Starting SVG Processing ===');
-            
+
             // Find all path elements
             const allPaths = draw.find('path');
             console.log('Found', allPaths.length, 'total paths');
@@ -439,13 +427,11 @@
             const splitPaths = splitCompoundPaths(allPaths);
             console.log('After splitting:', splitPaths.length, 'paths');
 
-            // Split paths into individual line segments
-            const individualLinePaths = splitPathsIntoLineSegments(splitPaths, draw);
-            console.log('After line segment splitting:', individualLinePaths.length, 'individual line paths');
-
-            // Convert paths to line segments
-            const lineSegments = convertPathsToLines(individualLinePaths);
+            // Convert paths to line segments and create interactive line paths
+            const lineSegments = convertPathsToLines(splitPaths, draw);
             console.log('Extracted', lineSegments.length, 'line segments');
+            console.log('Straight lines:', lineSegments.filter(l => !l.isCurve).length);
+            console.log('Curves:', lineSegments.filter(l => l.isCurve).length);
 
             // Build shape graph
             state.shapes = buildShapeGraph(lineSegments);
@@ -509,129 +495,256 @@
             return result;
         }
 
-        // Split paths into individual line segment paths
-        function splitPathsIntoLineSegments(paths, draw) {
-            const result = [];
-
-            paths.forEach(path => {
-                const pathArray = path.array();
-                const flattenedArray = flattenPathArray(pathArray);
-                const parent = path.parent();
-
-                // Get path attributes to preserve styling
-                const attrs = {
-                    fill: 'none', // Individual line segments should not have fill
-                    stroke: path.attr('stroke') || '#000000',
-                    'stroke-width': path.attr('stroke-width') || 2,
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round'
-                };
-
-                let currentPoint = null;
-                let firstPoint = null;
-                const linePathsForThisShape = [];
-
-                flattenedArray.forEach((cmd, index) => {
-                    const command = cmd[0];
-
-                    if (command === 'M') {
-                        currentPoint = { x: cmd[1], y: cmd[2] };
-                        firstPoint = { ...currentPoint };
-                    } else if (command === 'L') {
-                        if (currentPoint) {
-                            const endPoint = { x: cmd[1], y: cmd[2] };
-
-                            // Create a path for this single line segment
-                            const linePath = parent.path([
-                                ['M', currentPoint.x, currentPoint.y],
-                                ['L', endPoint.x, endPoint.y]
-                            ]);
-
-                            // Apply attributes
-                            Object.keys(attrs).forEach(key => {
-                                if (attrs[key]) linePath.attr(key, attrs[key]);
-                            });
-
-                            linePathsForThisShape.push(linePath);
-                            result.push(linePath);
-                            currentPoint = endPoint;
-                        }
-                    } else if (command === 'Z' || command === 'z') {
-                        // Close path - create line back to start if needed
-                        if (currentPoint && firstPoint && !pointsEqual(currentPoint, firstPoint, 0.001)) {
-                            const linePath = parent.path([
-                                ['M', currentPoint.x, currentPoint.y],
-                                ['L', firstPoint.x, firstPoint.y]
-                            ]);
-
-                            // Apply attributes
-                            Object.keys(attrs).forEach(key => {
-                                if (attrs[key]) linePath.attr(key, attrs[key]);
-                            });
-
-                            linePathsForThisShape.push(linePath);
-                            result.push(linePath);
-                        }
-                        currentPoint = firstPoint;
-                    }
-                });
-
-                // Remove the original path since we've split it into individual segments
-                path.remove();
-
-                console.log('Split path into', linePathsForThisShape.length, 'line segments');
-            });
-
-            return result;
-        }
-
         // Convert paths to line segments
-        function convertPathsToLines(paths) {
+        // Create individual path elements ONLY for straight lines (curves stay in original path)
+        function convertPathsToLines(paths, draw) {
             const allLineSegments = [];
+            let straightCurvesConverted = 0;
 
             paths.forEach((path, pathIndex) => {
                 const pathArray = path.array();
                 const pathId = 'path_' + pathIndex;
-                
-                // Convert to absolute coordinates and flatten curves
-                const flattenedArray = flattenPathArray(pathArray);
-                
+                const parent = path.parent();
+
                 let currentPoint = null;
                 let firstPoint = null;
                 let segmentIndex = 0;
 
-                flattenedArray.forEach((cmd, cmdIndex) => {
+                pathArray.forEach((cmd, cmdIndex) => {
                     const command = cmd[0];
 
-                    if (command === 'M') {
-                        // Move command - set current point
-                        currentPoint = { x: cmd[1], y: cmd[2] };
-                        firstPoint = { ...currentPoint };
-                    } else if (command === 'L') {
-                        // Line command
+                    if (command === 'M' || command === 'm') {
+                        // Move command - convert to absolute
+                        const x = command === 'M' ? cmd[1] : currentPoint ? currentPoint.x + cmd[1] : cmd[1];
+                        const y = command === 'M' ? cmd[2] : currentPoint ? currentPoint.y + cmd[2] : cmd[2];
+                        currentPoint = { x, y };
+                        firstPoint = { x, y };
+                    } else if (command === 'L' || command === 'l') {
+                        // Line command - create individual path element
                         if (currentPoint) {
-                            const endPoint = { x: cmd[1], y: cmd[2] };
+                            const x = command === 'L' ? cmd[1] : currentPoint.x + cmd[1];
+                            const y = command === 'L' ? cmd[2] : currentPoint.y + cmd[2];
+                            const endPoint = { x, y };
+
+                            // Create individual path element for this line
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', endPoint.x, endPoint.y]
+                            ]);
+                            linePath.attr({
+                                fill: 'none',
+                                stroke: '#000000',
+                                'stroke-width': 3,
+                                'stroke-linecap': 'round',
+                                'stroke-linejoin': 'round'
+                            });
+
                             const line = createLineSegment(
                                 pathId,
                                 segmentIndex,
                                 currentPoint,
                                 endPoint,
-                                path,
+                                linePath,
                                 cmdIndex
                             );
                             allLineSegments.push(line);
                             segmentIndex++;
                             currentPoint = endPoint;
                         }
+                    } else if (command === 'H' || command === 'h') {
+                        // Horizontal line - create individual path element
+                        if (currentPoint) {
+                            const x = command === 'H' ? cmd[1] : currentPoint.x + cmd[1];
+                            const endPoint = { x, y: currentPoint.y };
+
+                            // Create individual path element for this line
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', endPoint.x, endPoint.y]
+                            ]);
+                            linePath.attr({
+                                fill: 'none',
+                                stroke: '#000000',
+                                'stroke-width': 3,
+                                'stroke-linecap': 'round',
+                                'stroke-linejoin': 'round'
+                            });
+
+                            const line = createLineSegment(
+                                pathId,
+                                segmentIndex,
+                                currentPoint,
+                                endPoint,
+                                linePath,
+                                cmdIndex
+                            );
+                            allLineSegments.push(line);
+                            segmentIndex++;
+                            currentPoint = endPoint;
+                        }
+                    } else if (command === 'V' || command === 'v') {
+                        // Vertical line - create individual path element
+                        if (currentPoint) {
+                            const y = command === 'V' ? cmd[1] : currentPoint.y + cmd[1];
+                            const endPoint = { x: currentPoint.x, y };
+
+                            // Create individual path element for this line
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', endPoint.x, endPoint.y]
+                            ]);
+                            linePath.attr({
+                                fill: 'none',
+                                stroke: '#000000',
+                                'stroke-width': 3,
+                                'stroke-linecap': 'round',
+                                'stroke-linejoin': 'round'
+                            });
+
+                            const line = createLineSegment(
+                                pathId,
+                                segmentIndex,
+                                currentPoint,
+                                endPoint,
+                                linePath,
+                                cmdIndex
+                            );
+                            allLineSegments.push(line);
+                            segmentIndex++;
+                            currentPoint = endPoint;
+                        }
+                    } else if (command === 'C' || command === 'c' || command === 'S' || command === 's' ||
+                               command === 'Q' || command === 'q' || command === 'T' || command === 't' ||
+                               command === 'A' || command === 'a') {
+                        // Curve commands - check if effectively straight, if so convert to line
+                        if (currentPoint) {
+                            let endPoint;
+                            let controlPoints = [];
+
+                            // Extract endpoint and control points based on curve type
+                            if (command === 'C') {
+                                // Cubic bezier absolute: C x1 y1, x2 y2, x y
+                                endPoint = { x: cmd[5], y: cmd[6] };
+                                controlPoints = [
+                                    { x: cmd[1], y: cmd[2] },
+                                    { x: cmd[3], y: cmd[4] }
+                                ];
+                            } else if (command === 'c') {
+                                // Cubic bezier relative
+                                endPoint = { x: currentPoint.x + cmd[5], y: currentPoint.y + cmd[6] };
+                                controlPoints = [
+                                    { x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] },
+                                    { x: currentPoint.x + cmd[3], y: currentPoint.y + cmd[4] }
+                                ];
+                            } else if (command === 'S') {
+                                // Smooth cubic bezier absolute: S x2 y2, x y
+                                endPoint = { x: cmd[3], y: cmd[4] };
+                                controlPoints = [{ x: cmd[1], y: cmd[2] }];
+                            } else if (command === 's') {
+                                // Smooth cubic bezier relative
+                                endPoint = { x: currentPoint.x + cmd[3], y: currentPoint.y + cmd[4] };
+                                controlPoints = [{ x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] }];
+                            } else if (command === 'Q') {
+                                // Quadratic bezier absolute: Q x1 y1, x y
+                                endPoint = { x: cmd[3], y: cmd[4] };
+                                controlPoints = [{ x: cmd[1], y: cmd[2] }];
+                            } else if (command === 'q') {
+                                // Quadratic bezier relative
+                                endPoint = { x: currentPoint.x + cmd[3], y: currentPoint.y + cmd[4] };
+                                controlPoints = [{ x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] }];
+                            } else if (command === 'T') {
+                                // Smooth quadratic bezier absolute: T x y
+                                endPoint = { x: cmd[1], y: cmd[2] };
+                                // No explicit control point (reflected from previous)
+                                controlPoints = [];
+                            } else if (command === 't') {
+                                // Smooth quadratic bezier relative
+                                endPoint = { x: currentPoint.x + cmd[1], y: currentPoint.y + cmd[2] };
+                                controlPoints = [];
+                            } else if (command === 'A') {
+                                // Arc absolute: A rx ry x-axis-rotation large-arc-flag sweep-flag x y
+                                endPoint = { x: cmd[5], y: cmd[6] };
+                                // Arcs are more complex, we'll check them conservatively
+                                controlPoints = [];
+                            } else if (command === 'a') {
+                                // Arc relative
+                                endPoint = { x: currentPoint.x + cmd[5], y: currentPoint.y + cmd[6] };
+                                controlPoints = [];
+                            }
+
+                            if (endPoint) {
+                                // Check if this curve is effectively straight
+                                const isEffectivelyStraight = isCurveStraight(currentPoint, controlPoints, endPoint);
+
+                                if (isEffectivelyStraight) {
+                                    // Convert to actual line segment with individual path element
+                                    console.log('Converting straight curve:', command, 'from', currentPoint, 'to', endPoint);
+                                    straightCurvesConverted++;
+
+                                    const linePath = parent.path([
+                                        ['M', currentPoint.x, currentPoint.y],
+                                        ['L', endPoint.x, endPoint.y]
+                                    ]);
+                                    linePath.attr({
+                                        fill: 'none',
+                                        stroke: '#000000',
+                                        'stroke-width': 3,
+                                        'stroke-linecap': 'round',
+                                        'stroke-linejoin': 'round'
+                                    });
+
+                                    const line = createLineSegment(
+                                        pathId,
+                                        segmentIndex,
+                                        currentPoint,
+                                        endPoint,
+                                        linePath,
+                                        cmdIndex
+                                    );
+                                    allLineSegments.push(line);
+                                    segmentIndex++;
+                                } else {
+                                    // Keep as curve - reference original path
+                                    const line = createLineSegment(
+                                        pathId,
+                                        segmentIndex,
+                                        currentPoint,
+                                        endPoint,
+                                        path, // Keep reference to original path
+                                        cmdIndex
+                                    );
+                                    // Mark this as a curve - will not be interactive
+                                    line.isCurve = true;
+                                    line.curveCommand = command;
+                                    allLineSegments.push(line);
+                                    segmentIndex++;
+                                }
+
+                                currentPoint = endPoint;
+                            }
+                        }
                     } else if (command === 'Z' || command === 'z') {
-                        // Close path - connect back to first point
+                        // Close path - connect back to first point if not already there
                         if (currentPoint && firstPoint && !pointsEqual(currentPoint, firstPoint, 0.001)) {
+                            // Create individual path element for closing line
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', firstPoint.x, firstPoint.y]
+                            ]);
+                            linePath.attr({
+                                fill: 'none',
+                                stroke: '#000000',
+                                'stroke-width': 3,
+                                'stroke-linecap': 'round',
+                                'stroke-linejoin': 'round'
+                            });
+
                             const line = createLineSegment(
                                 pathId,
                                 segmentIndex,
                                 currentPoint,
                                 firstPoint,
-                                path,
+                                linePath,
                                 cmdIndex
                             );
                             allLineSegments.push(line);
@@ -640,8 +753,20 @@
                         currentPoint = firstPoint;
                     }
                 });
+
+                // Keep the original path - it contains the curves
+                // Make it non-interactive and style curves as medium gray
+                path.attr({
+                    fill: 'none',
+                    stroke: '#888888',  // Medium gray for non-interactive curves
+                    'stroke-width': 3,
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round'
+                });
+                path.style('pointer-events', 'none'); // Make it non-interactive so clicks go through to line segments
             });
 
+            console.log('Converted', straightCurvesConverted, 'curve commands to straight lines');
             return allLineSegments;
         }
 
@@ -748,8 +873,38 @@
 
         // Helper function to check if two points are equal
         function pointsEqual(p1, p2, epsilon = 0.001) {
-            return Math.abs(p1.x - p2.x) < epsilon && 
+            return Math.abs(p1.x - p2.x) < epsilon &&
                    Math.abs(p1.y - p2.y) < epsilon;
+        }
+
+        // Check if a curve is effectively straight by testing if control points are collinear
+        function isCurveStraight(startPoint, controlPoints, endPoint, tolerance = 0.5) {
+            // Calculate the direct line from start to end
+            const lineLength = Math.sqrt(
+                Math.pow(endPoint.x - startPoint.x, 2) +
+                Math.pow(endPoint.y - startPoint.y, 2)
+            );
+
+            // If line is too short, consider it straight
+            if (lineLength < 0.1) return true;
+
+            // For each control point, calculate perpendicular distance to the line
+            for (const cp of controlPoints) {
+                // Using formula: distance = |ax + by + c| / sqrt(a² + b²)
+                // Line equation: (y2-y1)x - (x2-x1)y + x2*y1 - y2*x1 = 0
+                const a = endPoint.y - startPoint.y;
+                const b = -(endPoint.x - startPoint.x);
+                const c = endPoint.x * startPoint.y - endPoint.y * startPoint.x;
+
+                const distance = Math.abs(a * cp.x + b * cp.y + c) / Math.sqrt(a * a + b * b);
+
+                // If any control point is too far from the line, it's a real curve
+                if (distance > tolerance) {
+                    return false;
+                }
+            }
+
+            return true; // All control points are close to the line
         }
 
         // Create a line segment data structure
@@ -859,19 +1014,26 @@
             return area > 0 ? 'cw' : 'ccw';
         }
 
-        // Make line segments interactive
+        // Make line segments interactive (only straight lines, curves are non-interactive)
         function makeLineSegmentsInteractive(draw) {
             console.log('=== Making Line Segments Interactive ===');
 
-            // Each path is now a single line segment, so we can attach handlers directly
+            let interactiveCount = 0;
+
+            // Only make straight lines interactive (skip curves)
             state.shapes.forEach(shape => {
                 shape.lines.forEach(line => {
+                    // Skip curves - they're not selectable
+                    if (line.isCurve) {
+                        return;
+                    }
+
                     const path = line.svgPath;
 
                     // Make path interactive
                     path.style('cursor', 'pointer');
 
-                    // Add click handler - since each path is one line, just handle that line
+                    // Add click handler
                     path.on('click', function(event) {
                         event.stopPropagation();
                         handleLineClick(line);
@@ -879,19 +1041,22 @@
 
                     // Add hover handlers
                     path.on('mouseenter', function() {
-                        path.attr('stroke-width', 4);
+                        path.attr('stroke-width', 5);
                     });
 
                     path.on('mouseleave', function() {
-                        path.attr('stroke-width', 2);
+                        path.attr('stroke-width', 3);
                     });
+
+                    interactiveCount++;
                 });
             });
 
             // Apply initial colors based on line state
             updateAllLineVisuals();
 
-            console.log('Made', state.shapes.reduce((sum, s) => sum + s.lines.length, 0), 'line segments interactive');
+            console.log('Made', interactiveCount, 'straight line segments interactive');
+            console.log('Skipped', state.shapes.reduce((sum, s) => sum + s.lines.filter(l => l.isCurve).length, 0), 'curve segments');
         }
 
         // Get color for line based on its state
@@ -899,7 +1064,7 @@
             if (!line.isAdjustable) {
                 return '#000000'; // Normal - black
             } else if (line.multiplier === 1) {
-                return '#2196F3'; // 1x adjustable - blue
+                return '#1976D2'; // 1x adjustable - darker blue
             } else if (line.multiplier === 2) {
                 return '#9C27B0'; // 2x adjustable - purple
             }
@@ -931,6 +1096,10 @@
 
         // Update single line visual appearance
         function updateLineVisual(line) {
+            // Skip curves - they don't have individual path elements
+            if (line.isCurve) {
+                return;
+            }
             const color = getLineColor(line);
             line.svgPath.attr('stroke', color);
         }
