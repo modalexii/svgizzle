@@ -439,8 +439,12 @@
             const splitPaths = splitCompoundPaths(allPaths);
             console.log('After splitting:', splitPaths.length, 'paths');
 
+            // Split paths into individual line segments
+            const individualLinePaths = splitPathsIntoLineSegments(splitPaths, draw);
+            console.log('After line segment splitting:', individualLinePaths.length, 'individual line paths');
+
             // Convert paths to line segments
-            const lineSegments = convertPathsToLines(splitPaths);
+            const lineSegments = convertPathsToLines(individualLinePaths);
             console.log('Extracted', lineSegments.length, 'line segments');
 
             // Build shape graph
@@ -500,6 +504,82 @@
                     // Remove original compound path
                     path.remove();
                 }
+            });
+
+            return result;
+        }
+
+        // Split paths into individual line segment paths
+        function splitPathsIntoLineSegments(paths, draw) {
+            const result = [];
+
+            paths.forEach(path => {
+                const pathArray = path.array();
+                const flattenedArray = flattenPathArray(pathArray);
+                const parent = path.parent();
+
+                // Get path attributes to preserve styling
+                const attrs = {
+                    fill: 'none', // Individual line segments should not have fill
+                    stroke: path.attr('stroke') || '#000000',
+                    'stroke-width': path.attr('stroke-width') || 2,
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round'
+                };
+
+                let currentPoint = null;
+                let firstPoint = null;
+                const linePathsForThisShape = [];
+
+                flattenedArray.forEach((cmd, index) => {
+                    const command = cmd[0];
+
+                    if (command === 'M') {
+                        currentPoint = { x: cmd[1], y: cmd[2] };
+                        firstPoint = { ...currentPoint };
+                    } else if (command === 'L') {
+                        if (currentPoint) {
+                            const endPoint = { x: cmd[1], y: cmd[2] };
+
+                            // Create a path for this single line segment
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', endPoint.x, endPoint.y]
+                            ]);
+
+                            // Apply attributes
+                            Object.keys(attrs).forEach(key => {
+                                if (attrs[key]) linePath.attr(key, attrs[key]);
+                            });
+
+                            linePathsForThisShape.push(linePath);
+                            result.push(linePath);
+                            currentPoint = endPoint;
+                        }
+                    } else if (command === 'Z' || command === 'z') {
+                        // Close path - create line back to start if needed
+                        if (currentPoint && firstPoint && !pointsEqual(currentPoint, firstPoint, 0.001)) {
+                            const linePath = parent.path([
+                                ['M', currentPoint.x, currentPoint.y],
+                                ['L', firstPoint.x, firstPoint.y]
+                            ]);
+
+                            // Apply attributes
+                            Object.keys(attrs).forEach(key => {
+                                if (attrs[key]) linePath.attr(key, attrs[key]);
+                            });
+
+                            linePathsForThisShape.push(linePath);
+                            result.push(linePath);
+                        }
+                        currentPoint = firstPoint;
+                    }
+                });
+
+                // Remove the original path since we've split it into individual segments
+                path.remove();
+
+                console.log('Split path into', linePathsForThisShape.length, 'line segments');
             });
 
             return result;
@@ -779,24 +859,11 @@
             return area > 0 ? 'cw' : 'ccw';
         }
 
-        // Make line segments interactive by modifying path strokes directly
+        // Make line segments interactive
         function makeLineSegmentsInteractive(draw) {
             console.log('=== Making Line Segments Interactive ===');
 
-            // Create a map of line segments by their path
-            const pathSegmentMap = new Map();
-
-            state.shapes.forEach(shape => {
-                shape.lines.forEach(line => {
-                    const pathId = line.svgPath.id() || line.pathId;
-                    if (!pathSegmentMap.has(pathId)) {
-                        pathSegmentMap.set(pathId, []);
-                    }
-                    pathSegmentMap.get(pathId).push(line);
-                });
-            });
-
-            // For each path, add click handler for detecting which line segment was clicked
+            // Each path is now a single line segment, so we can attach handlers directly
             state.shapes.forEach(shape => {
                 shape.lines.forEach(line => {
                     const path = line.svgPath;
@@ -804,33 +871,10 @@
                     // Make path interactive
                     path.style('cursor', 'pointer');
 
-                    // Add click handler that determines which segment was clicked
+                    // Add click handler - since each path is one line, just handle that line
                     path.on('click', function(event) {
                         event.stopPropagation();
-
-                        // Get click position relative to SVG
-                        const svg = path.node.ownerSVGElement;
-                        const pt = svg.createSVGPoint();
-                        pt.x = event.clientX;
-                        pt.y = event.clientY;
-                        const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
-
-                        // Find closest line segment from this path
-                        const segments = pathSegmentMap.get(line.pathId) || [line];
-                        let closestLine = null;
-                        let minDist = Infinity;
-
-                        segments.forEach(seg => {
-                            const dist = distanceToLineSegment(svgP, seg.startPoint, seg.endPoint);
-                            if (dist < minDist) {
-                                minDist = dist;
-                                closestLine = seg;
-                            }
-                        });
-
-                        if (closestLine && minDist < 10) { // 10 pixel tolerance
-                            handleLineClick(closestLine);
-                        }
+                        handleLineClick(line);
                     });
 
                     // Add hover handlers
@@ -848,32 +892,6 @@
             updateAllLineVisuals();
 
             console.log('Made', state.shapes.reduce((sum, s) => sum + s.lines.length, 0), 'line segments interactive');
-        }
-
-        // Calculate distance from point to line segment
-        function distanceToLineSegment(point, lineStart, lineEnd) {
-            const dx = lineEnd.x - lineStart.x;
-            const dy = lineEnd.y - lineStart.y;
-            const lengthSquared = dx * dx + dy * dy;
-
-            if (lengthSquared === 0) {
-                // Line segment is a point
-                const pdx = point.x - lineStart.x;
-                const pdy = point.y - lineStart.y;
-                return Math.sqrt(pdx * pdx + pdy * pdy);
-            }
-
-            // Calculate projection of point onto line segment
-            let t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lengthSquared;
-            t = Math.max(0, Math.min(1, t)); // Clamp to [0, 1]
-
-            const projX = lineStart.x + t * dx;
-            const projY = lineStart.y + t * dy;
-
-            const distX = point.x - projX;
-            const distY = point.y - projY;
-
-            return Math.sqrt(distX * distX + distY * distY);
         }
 
         // Get color for line based on its state
@@ -904,52 +922,24 @@
                 line.multiplier = 1;
             }
 
-            // Update visual appearance for all lines in this path
-            updatePathVisuals(line.svgPath, line.pathId);
+            // Update visual appearance
+            updateLineVisual(line);
 
             // Log state change
             console.log('Line', line.id, 'state:', line.isAdjustable ? line.multiplier + 'x adjustable' : 'normal');
         }
 
-        // Update path visual appearance based on its line segments
-        function updatePathVisuals(path, pathId) {
-            // Find all line segments for this path
-            const pathLines = [];
-            state.shapes.forEach(shape => {
-                shape.lines.forEach(line => {
-                    if (line.pathId === pathId) {
-                        pathLines.push(line);
-                    }
-                });
-            });
-
-            // Determine the dominant state (most specific adjustable state wins)
-            let hasAdjustable2x = pathLines.some(l => l.isAdjustable && l.multiplier === 2);
-            let hasAdjustable1x = pathLines.some(l => l.isAdjustable && l.multiplier === 1);
-
-            // Set path color based on dominant state
-            let color;
-            if (hasAdjustable2x) {
-                color = '#9C27B0'; // Purple for 2x
-            } else if (hasAdjustable1x) {
-                color = '#2196F3'; // Blue for 1x
-            } else {
-                color = '#000000'; // Black for normal
-            }
-
-            path.attr('stroke', color);
+        // Update single line visual appearance
+        function updateLineVisual(line) {
+            const color = getLineColor(line);
+            line.svgPath.attr('stroke', color);
         }
 
         // Update all line visuals
         function updateAllLineVisuals() {
-            const processedPaths = new Set();
-
             state.shapes.forEach(shape => {
                 shape.lines.forEach(line => {
-                    if (!processedPaths.has(line.pathId)) {
-                        updatePathVisuals(line.svgPath, line.pathId);
-                        processedPaths.add(line.pathId);
-                    }
+                    updateLineVisual(line);
                 });
             });
         }
