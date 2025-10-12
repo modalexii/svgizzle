@@ -231,17 +231,52 @@ export function updateDPI(event) {
     }
 }
 
-// Apply adjustments (placeholder for now)
+// Apply adjustments
 export function applyAdjustments(showStatus) {
     if (!state.svgDraw) {
         showStatus('Please upload an SVG first', 'error');
         return;
     }
 
-    showStatus('Apply function will be implemented in Phase 4-7', 'error');
-    console.log('Apply adjustments clicked');
-    console.log('Material thickness:', state.materialThickness, 'mm');
-    console.log('DPI:', state.dpi);
+    // Check if any lines are marked as adjustable
+    const hasAdjustableLines = state.shapes.some(shape =>
+        shape.lines.some(line => line.isAdjustable)
+    );
+
+    if (!hasAdjustableLines) {
+        showStatus('Please mark at least one line as adjustable (click on lines)', 'error');
+        return;
+    }
+
+    // Validate inputs
+    if (state.materialThickness <= 0) {
+        showStatus('Material thickness must be greater than 0', 'error');
+        return;
+    }
+
+    if (state.dpi <= 0) {
+        showStatus('DPI must be greater than 0', 'error');
+        return;
+    }
+
+    try {
+        // Import and run Phase 5 adjustment function (includes Phase 4 + propagation + SVG update)
+        import('./adjustments.js').then(module => {
+            const adjustedCount = module.applyAdjustmentsPhase5();
+
+            if (adjustedCount > 0) {
+                showStatus('Successfully adjusted ' + adjustedCount + ' lines and updated SVG (see console for details)', 'success');
+            } else {
+                showStatus('No lines were adjusted', 'error');
+            }
+        }).catch(error => {
+            showStatus('Error applying adjustments: ' + error.message, 'error');
+            console.error('Adjustment error:', error);
+        });
+    } catch (error) {
+        showStatus('Error applying adjustments: ' + error.message, 'error');
+        console.error('Adjustment error:', error);
+    }
 }
 
 // Download SVG

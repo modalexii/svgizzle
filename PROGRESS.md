@@ -1,8 +1,8 @@
 # Implementation Progress
 
-## Current Status: Phase 3 Complete
+## Current Status: Phase 5 Complete (+ Phase 7 SVG Updates)
 
-The application has completed Phase 3 of the 8-phase implementation plan detailed in design.md.
+The application has completed Phases 1-5 and core Phase 7 functionality (SVG path updates) of the 8-phase implementation plan detailed in design.md.
 
 ---
 
@@ -125,55 +125,69 @@ The application has completed Phase 3 of the 8-phase implementation plan detaile
 
 ---
 
+---
+
+### Phase 4: Geometric Adjustment Engine - Part 1 ✓
+**Status**: Complete
+**Files**: `app/js/adjustments.js`
+
+**Completed Tasks**:
+- ✓ Task 4.1: Unit conversion implemented
+  - Function: `mmToSVGUnits()` (app/js/adjustments.js:12-25)
+  - Formula: (mm * dpi) / 25.4
+  - Input validation for DPI and mm values
+
+- ✓ Task 4.2: Direction calculation implemented
+  - Function: `calculateShapeCentroid()` (app/js/adjustments.js:30-50)
+  - Function: `calculatePerpendicularDirection()` (app/js/adjustments.js:59-119)
+  - Calculates both perpendicular vectors (+90° and -90°)
+  - Uses centroid and winding order to choose correct direction
+  - Handles expand/contract modes
+
+- ✓ Task 4.3: Single line adjustment implemented
+  - Function: `adjustSingleLine()` (app/js/adjustments.js:127-194)
+  - Calculates target length based on material thickness × multiplier
+  - Computes new endpoint positions using perpendicular direction
+  - Moves both endpoints equally (half delta each)
+  - Extensive console logging for debugging
+
+**Deliverable**: Functions that calculate new line geometry ✓
+
+---
+
+### Phase 5: Geometric Adjustment Engine - Part 2 ✓
+**Status**: Complete
+**Files**: `app/js/adjustments.js`
+
+**Completed Tasks**:
+- ✓ Task 5.1: Change propagation to adjacent lines implemented
+  - Function: `propagateChanges()` (app/js/adjustments.js:274-372)
+  - Identifies connected lines at adjusted endpoints
+  - Updates shared endpoints for adjustable-to-adjustable connections
+  - Tracks visited lines to prevent infinite loops
+
+- ✓ Task 5.2: Line translation implemented
+  - Function: `translateLine()` (app/js/adjustments.js:255-264)
+  - Translates entire line to maintain connection
+  - Preserves line angle and length
+  - Updates both endpoints with delta vector
+
+- ✓ Task 5.3: Recursive propagation implemented
+  - Handles chains of translatable lines
+  - Uses Set-based visited tracking to avoid loops
+  - Recursively propagates through connected non-adjustable lines
+  - Maintains closed shape geometry
+
+**Helper Functions**:
+- `findLineById()` (app/js/adjustments.js:233-239) - Find line across all shapes
+- `findShapeForLine()` (app/js/adjustments.js:246-248) - Find parent shape
+- `applyAdjustmentsPhase5()` (app/js/adjustments.js:427-470) - Main entry point
+
+**Deliverable**: All affected lines updated to maintain closed shapes ✓
+
+---
+
 ## Phases Still To Be Implemented
-
----
-
-### Phase 4: Geometric Adjustment Engine - Part 1
-**Status**: Not Started
-
-**Tasks**:
-- [ ] Task 4.1: Implement unit conversion
-  - MM + DPI → SVG units formula: (mm * dpi) / 25.4
-  - Create conversion utility function
-  - Validate inputs
-
-- [ ] Task 4.2: Implement direction calculation
-  - Calculate shape centroid
-  - Determine perpendicular vector to line
-  - Use winding order to choose correct perpendicular direction
-  - Decide expansion vs contraction
-
-- [ ] Task 4.3: Implement single line adjustment
-  - Calculate new line length
-  - Compute new endpoint positions
-  - Update line segment data
-  - Do NOT propagate changes yet (isolated test)
-
-**Expected Deliverable**: Functions that calculate new line geometry
-
----
-
-### Phase 5: Geometric Adjustment Engine - Part 2
-**Status**: Not Started
-
-**Tasks**:
-- [ ] Task 5.1: Implement change propagation to adjacent lines
-  - Identify connected lines at each adjusted endpoint
-  - Classify connected lines: adjustable, fixed, or translatable
-  - Update shared endpoints for adjustable-to-adjustable connections
-
-- [ ] Task 5.2: Implement line translation
-  - Translate entire line to maintain connection
-  - Update both endpoints
-  - Preserve line angle and length
-
-- [ ] Task 5.3: Implement recursive propagation
-  - Handle chains of translatable lines
-  - Track visited lines to avoid infinite loops
-  - Ensure all connections remain intact
-
-**Expected Deliverable**: All affected lines updated to maintain closed shapes
 
 ---
 
@@ -200,29 +214,32 @@ The application has completed Phase 3 of the 8-phase implementation plan detaile
 
 ---
 
-### Phase 7: Apply & Update SVG
-**Status**: Not Started
-**Note**: Download functionality partially implemented (app/svgizzle.html:809-833)
+### Phase 7: Apply & Update SVG ✓
+**Status**: Mostly Complete (integrated with Phase 5)
+**Files**: `app/js/adjustments.js`, `app/js/ui.js`
 
-**Tasks**:
-- [ ] Task 7.1: Implement Apply button handler
-  - Trigger adjustment calculation for all marked lines
-  - Update internal shape data
-  - Update SVG.js path instances with new geometry
+**Completed Tasks**:
+- ✓ Task 7.1: Apply button handler implemented
+  - Function: `applyAdjustments()` (app/js/ui.js:234-280)
+  - Validates inputs (material thickness, DPI, adjustable lines)
+  - Triggers Phase 5 adjustment calculations
+  - Error handling and user feedback
 
-- [ ] Task 7.2: SVG path regeneration
-  - Convert adjusted line segments back to path arrays
-  - Use SVG.js `path.plot(newArray)` to update each path
-  - Maintain original path structure where possible
-  - Preserve stroke/fill attributes
+- ✓ Task 7.2: SVG path regeneration implemented
+  - Function: `updateSVGPath()` (app/js/adjustments.js:379-403)
+  - Function: `updateAllSVGPaths()` (app/js/adjustments.js:408-421)
+  - Converts adjusted line segments back to path arrays
+  - Uses SVG.js `path.plot(pathArray)` to update paths
+  - Updates coordinates: [['M', x, y], ['L', x, y]]
+  - Preserves stroke/fill attributes
 
-- [ ] Task 7.3: Canvas update
+- ✓ Task 7.3: Canvas update
   - SVG automatically updates via SVG.js reactive system
-  - Maintain color coding for adjustable lines
-  - Re-enable interaction for further adjustments
-  - Update any visual indicators
+  - Color coding maintained for adjustable lines
+  - Interactive handlers remain functional
+  - Real-time visual feedback
 
-**Expected Deliverable**: Modified SVG displayed in canvas
+**Expected Deliverable**: Modified SVG displayed in canvas ✓
 
 ---
 
@@ -273,12 +290,21 @@ The application has completed Phase 3 of the 8-phase implementation plan detaile
 - ✓ Interactive line overlays
 - ✓ State toggling (normal → 1x → 2x)
 - ✓ Hover effects
+- ✓ Unit conversion (mm + DPI → SVG units)
+- ✓ Perpendicular direction calculation
+- ✓ Single line adjustment geometry
+- ✓ Change propagation to adjacent lines
+- ✓ Line translation for non-adjustable lines
+- ✓ Recursive propagation with loop prevention
+- ✓ SVG path updates with new geometry
 
 **Testing Needed**:
-- Geometric adjustments
-- Shape closure preservation
+- Real-world laser-cut SVG patterns (tabs/slots)
+- Tab vs slot classification (Phase 6)
+- Corner cases (4-line corners)
 - Download of adjusted SVG
 - Edge cases and error handling
+- Multiple adjustment iterations
 
 ---
 
@@ -291,31 +317,41 @@ None currently. Application is stable through Phase 3.
 ## Session Handoff Notes
 
 **For Next Session**:
-1. Start with Phase 4, Task 4.1: Implement unit conversion
-2. Create function to convert mm + DPI to SVG units: (mm * dpi) / 25.4
-3. Task 4.2: Calculate perpendicular direction for line adjustments
-4. Task 4.3: Implement single line adjustment (without propagation yet)
+1. Optional: Implement Phase 6 tab/slot classification (if needed for real-world SVGs)
+2. Implement Phase 8 polish: input validation, edge case handling, UI improvements
+3. Test with real laser-cut SVG files
 
-**Context for Phase 4**:
-- Interactive line selection complete - users can mark lines as adjustable
-- Line data has `isAdjustable` and `multiplier` properties set by user clicks
-- Need to calculate new line lengths based on `state.materialThickness` and `state.dpi`
-- Direction calculation uses shape `windingOrder` and perpendicular vectors
-- Adjustments expand "away from" or contract "toward" shape centroid
+**Current Implementation Status**:
+- **Phases 1-5 + Phase 7 core: COMPLETE**
+- All geometric adjustment logic working
+- Change propagation maintains closed shapes
+- SVG paths update with new geometry
+- Visual feedback and interaction working
 
-**Data Structures Ready**:
-- Global `state` object with `materialThickness` and `dpi`
-- `state.shapes[]` array with closed shapes
-- Each line has `startPoint`, `endPoint`, `angle`, `length`, `isAdjustable`, `multiplier`
-- Shape has `windingOrder` ('cw' or 'ccw')
-- Interactive overlays in `line.interactiveLine` for visual updates
+**What Works**:
+- Upload SVG → Parse → Display
+- Click lines to mark as 1x or 2x adjustable
+- Set material thickness and DPI
+- Apply adjustments with propagation
+- Shapes remain closed (adjacent lines updated)
+- SVG updates in real-time
+- Download button ready (basic functionality exists)
 
-**Key Algorithm Notes**:
-- Unit conversion: `svgUnits = (mm * dpi) / 25.4`
-- Perpendicular vector: rotate line direction vector by 90°
-- Use winding order to choose correct perpendicular direction (toward or away from centroid)
-- For now, only adjust the line itself - don't propagate to adjacent lines (Phase 5)
+**Known Limitations**:
+- Phase 6 (tab/slot classification) not implemented
+  - Currently treats all non-adjustable lines as translatable
+  - For laser-cut patterns, may need to mark slot edges as "fixed"
+- No special handling for corner tabs/slots yet
+- Limited input validation
+- No error recovery for malformed SVGs
+
+**Key Implementation Details**:
+- All code refactored into ES6 modules in `app/js/`
+- Adjustment engine in `app/js/adjustments.js`
+- Phase 5 function `applyAdjustmentsPhase5()` is the main entry point
+- Uses recursive propagation with Set-based loop prevention
+- SVG paths updated via `path.plot(pathArray)` after adjustments
 
 ---
 
-*Last Updated: Phase 3 completion*
+*Last Updated: Phase 5 completion (includes Phase 7 SVG updates)*
